@@ -1,0 +1,70 @@
+# Instalar pacotes necessários #
+install.packages("geobr")
+install.packages("ggplot2")
+install.packages("sf")
+install.packages("dplyr")
+
+library(geobr)
+library(ggplot2)
+library(sf)
+library(dplyr)
+
+# Download do mapa dos estados #
+states <- read_state(code_state = "all", year = 2020)
+
+# Criação data frame cursos #
+dados <- data.frame(
+  state_name = c("AC", "AL", "AP", "AM", "BA", "CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"),
+  num_cursos = c(0,0,0,0,0,0,8,0,2,0,0,0,0,0,0,0,0,0,0,0,19,0,0,0,16,0,0),
+  cursos_CPG = c(0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,3,0,0),
+  cursos_EEV = c(0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,4,0,0,0,4,0,0),
+  cursos_ESY = c(0,0,0,0,0,0,6,0,1,0,0,0,0,0,0,0,0,0,0,0,12,0,0,0,9,0,0))
+
+# Join estados com dados cursos #
+states_data <- left_join(states, dados, by = c("abbrev_state" = "state_name"))
+
+# Obter o centroide de cada estado para posicionar o texto #
+states_centroids <- st_centroid(states_data)
+states_data <- cbind(states_data, st_coordinates(states_centroids))
+
+# Definição de valores médios #
+max_value <- 20
+
+largura <- 10
+altura <- 8
+
+mean_value <- mean(states_data$num_cursos)
+
+# Define a named vector for specific colors #
+specific_colors <- c(
+  "0" = "white",
+  "2" = "gray80",
+  "8" = "gray35",
+  "16" = "gray20",
+  "19" = "gray10")
+
+# Define the specific state and color #
+highlight_states <- c("SP", "RS", "DF")
+highlight_colors <- c("white", "white", "white")
+default_color <- "black"
+
+# Exportar gráfico para EPS
+postscript("heatmap_num_cursos_com_escala_corrigido.eps", width = largura, height = altura, paper = "special", horizontal = TRUE)
+
+# Criar o Heatmap com a escala (valores zero em branco)
+ggplot() +
+  geom_sf(data = states_data, aes(fill = num_cursos)) +
+  geom_text(data = states_data, aes(label = abbrev_state, x = X, y = Y), 
+            size = 2, fontface = "bold", color = "black", check_overlap = TRUE, nudge_y = 0.1) +
+  scale_fill_gradient(name = NULL,  # Nome explícito da escala
+                      low = "white", high = "grey20", limits = c(0, max_value)) +  # Zero será branco
+  theme_minimal() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text = element_blank(),
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        legend.position = "right")  # Posiciona a escala à direita
+
+# Fechar o dispositivo EPS
+dev.off()
